@@ -21,6 +21,25 @@ enum Cfg {
     static let idleDelay: TimeInterval = 1.5
     static let fadeInDuration: TimeInterval  = 0.16
     static let fadeOutDuration: TimeInterval = 0.55
+
+    // MARK: 全屏穿透（在别的 App 全屏时依然显示）
+
+    /// 置顶时的窗口层级。
+    /// 用 `.floating`(3) 时，窗口能加入所有普通 Space，但进入别的 App 的**全屏 Space**
+    /// 后会被压在全屏窗口之下——看起来就是「全屏时它不见了」。
+    /// 提到 `.modalPanel`(8)：高于普通窗口(0)与全屏窗口，仍低于 Dock(20) / 菜单栏(24)。
+    static let pinnedLevel: NSWindow.Level = .modalPanel
+    /// 取消置顶时的层级
+    static let normalLevel: NSWindow.Level = .normal
+
+    /// Space 行为（穿透全屏的必要条件，四者缺一不可）：
+    /// - canJoinAllSpaces     : 加入包括全屏 Space 在内的所有 Space
+    /// - fullScreenAuxiliary  : 允许与全屏窗口共存于同一 Space
+    /// - stationary           : 切换 Space 时固定在屏幕原位，不跟着滑走
+    /// - ignoresCycle         : 不参与 ⌘` 窗口循环，避免打扰
+    static let pinnedBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle
+    ]
 }
 
 func roundedFont(_ size: CGFloat, _ weight: NSFont.Weight) -> NSFont {
@@ -276,8 +295,10 @@ final class KeyButton: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        // 只让面板成为 key window，**不**调用 NSApp.activate()：
+        // 激活本 App 会把正在全屏的 Excel / 浏览器踢出全屏，
+        // 而 .nonactivatingPanel 本就支持「不激活 App 也能收键盘输入」。
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
         pressing = true
     }
 
@@ -456,8 +477,10 @@ final class TopBarView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        // 只让面板成为 key window，**不**调用 NSApp.activate()：
+        // 激活本 App 会把正在全屏的 Excel / 浏览器踢出全屏，
+        // 而 .nonactivatingPanel 本就支持「不激活 App 也能收键盘输入」。
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
         let p = convert(event.locationInWindow, from: nil)
         if closeRect.insetBy(dx: -6, dy: -6).contains(p) { return }
         if pinRect.contains(p) { return }
@@ -615,15 +638,24 @@ final class RootView: NSView {
     override func mouseExited(with event: NSEvent)  { onHoverChange?(false) }
 
     override func mouseDown(with event: NSEvent) {
+        // 只让面板成为 key window，**不**调用 NSApp.activate()：
+        // 激活本 App 会把正在全屏的 Excel / 浏览器踢出全屏，
+        // 而 .nonactivatingPanel 本就支持「不激活 App 也能收键盘输入」。
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
         super.mouseDown(with: event)
     }
 }
 
 // MARK: - 窗口
 
-final class CalcWindow: NSWindow {
+/// 用 NSPanel 而非 NSWindow，是为了「穿透别的 App 全屏 Space」。
+///
+/// AppKit 对普通 NSWindow 有额外限制：想让它出现在其它 App 的全屏窗口之上，
+/// 系统要求 App 本身降级成 accessory（LSUIElement，无 Dock 图标、无菜单栏）。
+/// NSPanel 没有这条限制——配合 `.nonactivatingPanel` 样式与 `.modalPanel` 层级，
+/// 可以在**保留 Dock 图标和菜单栏**的前提下浮在全屏应用之上。
+/// 同时 `.nonactivatingPanel` 让点击面板不会激活本 App，也就不会把对方的全屏踢掉。
+final class CalcWindow: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
 
     override var canBecomeKey: Bool { true }
@@ -767,9 +799,16 @@ final class CalcViewController: NSViewController {
         guard let win = view.window else { return }
         let pinned = topBar.isPinned
         topBar.isPinned = !pinned
-        win.level = pinned ? .normal : .floating
+        win.level = pinned ? Cfg.normalLevel : Cfg.pinnedLevel
         // 取消置顶后如果失去焦点，让它回到前台可点状态
-        if pinned { win.orderFront(nil) }
+        if pinned {
+            win.orderFrontRegardless()
+        } else {
+            // 重新置顶时，把 Space 归属也重新声明一遍，
+            // 否则可能留在「全屏 Space 之外」而看不见
+            win.collectionBehavior = Cfg.pinnedBehavior
+            win.orderFrontRegardless()
+        }
         bumpInteraction()
     }
 
@@ -852,12 +891,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: CalcWindow!
     var controller: CalcViewController!
+    /// 防 App Nap 的活动令牌（见 applicationDidFinishLaunching）
+    private var activityToken: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller = CalcViewController()
 
         let win = CalcWindow(contentRect: NSRect(origin: .zero, size: Cfg.size),
-                             styleMask: [.borderless],
+                             styleMask: [.borderless, .nonactivatingPanel],
                              backing: .buffered,
                              defer: false)
         win.appearance = NSAppearance(named: .darkAqua)
@@ -866,8 +907,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 关掉系统阴影：无边框透明窗在圆角边界被 WindowServer 抗锯齿时
         // 会渗出深色像素，看起来就是「不规则黑线」——直接不要系统阴影
         win.hasShadow = false
-        win.level = .floating
-        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        // —— 穿透全屏三件套（缺一不可）——
+        win.collectionBehavior = Cfg.pinnedBehavior
+        // NSPanel 的隐藏规则和 NSWindow 不同：默认「App 失活即隐藏」，
+        // 那正好是我们最不想要的——切到 Excel 就消失。显式关掉。
+        win.hidesOnDeactivate = false
+        win.becomesKeyOnlyIfNeeded = false
+        win.worksWhenModal = true
+        win.isFloatingPanel = true
+        // ⚠️ 顺序要紧：isFloatingPanel = true 内部会把 level 重置为 .floating(3)，
+        // 所以这一行必须放在它**之后**。放前面会被无声改回去，实测踩过。
+        win.level = Cfg.pinnedLevel
+
         win.isMovableByWindowBackground = false
         win.isReleasedWhenClosed = false
         win.animationBehavior = .utilityWindow
@@ -942,17 +994,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                               selector: #selector(appActivated),
                                               name: NSApplication.didBecomeActiveNotification,
                                               object: nil)
+
+        // 切换 Space（含进出全屏）时，重新声明窗口归属。
+        // 系统在建立/销毁全屏 Space 时不会把已有窗口自动再"加入"一次，
+        // 必须自己补一刀，否则窗口滞留在原 Space —— 表现出来就是「全屏时不见了」。
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(activeSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
+
+        // 阻止 App Nap：浮窗类 App 长时间不在前台会被系统降频挂起，
+        // 结果是窗口还在但不再刷新。声明一个「用户发起」级别的活动即可豁免。
+        // 用 AllowingIdleSystemSleep 版本：只防 App Nap，不阻止系统休眠。
+        activityToken = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .suddenTerminationDisabled],
+            reason: "算盘：桌面常驻浮窗需保持响应")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         // 记住窗口位置，下次还在原地
         UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "SuanPanFrame")
+        if let t = activityToken { ProcessInfo.processInfo.endActivity(t) }
     }
 
     @objc private func appActivated() {
-        if window.level == .floating && !window.isVisible {
-            window.orderFront(nil)
-        }
+        guard window.level != Cfg.normalLevel else { return }
+        if !window.isVisible { window.orderFrontRegardless() }
+    }
+
+    /// Space 切换 / 进出全屏的兜底：把「加入所有 Space」重新声明一次
+    @objc private func activeSpaceChanged() {
+        guard window.level != Cfg.normalLevel else { return }
+        window.collectionBehavior = Cfg.pinnedBehavior
+        window.orderFrontRegardless()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

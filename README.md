@@ -27,10 +27,28 @@
 | **Only the four basic operations** — `+ − × ÷`, plus `AC` and backspace. No sign toggle, no percent, no scientific functions. | **只有四则运算** —— `+ − × ÷`，加 `AC` 清零与退格。没有正负号、百分比、科学函数这些用不上的东西。 |
 | **Top bar** — close button on the left, a **togglable pin** on the right for always-on-top; drag anywhere on the bar to move the window. | **顶部栏** —— 左上关闭、右上**图钉可反复切换置顶**；顶栏空白处按住即可拖动整窗。 |
 | **Idle fade** — 1.5 s after the pointer leaves the window, the whole app smoothly fades to 40% opacity. The top bar actually gets *brighter* while faded, so you can still spot it at a glance. | **空闲淡出** —— 鼠标离开窗口 1.5 秒后整体平滑淡到 40% 不透明度；淡出时顶栏反而**提高**自身亮度，一眼还能认出它在哪。 |
-| **Lives on every Space** — joins all Spaces (`canJoinAllSpaces`), so it stays visible when you switch desktops or go full-screen in Excel. | **桌面常驻** —— 加入所有桌面空间（`canJoinAllSpaces`），切桌面、Excel 全屏时它都还在。 |
+| **Lives on every Space — including over other apps' full-screen windows.** Switching desktops, entering Mission Control, or going full-screen in Excel / a browser: it stays right there on top. | **桌面常驻，且能浮在别的 App 全屏窗口之上。** 切桌面、进调度中心、Excel 或浏览器全屏时，它都还在最上层。 |
 | **Remembers its position** — move it somewhere convenient; it will be there next launch. | **位置记忆** —— 挪到顺手的地方，下次启动还在那。 |
 | **Keyboard input** — number pad, operators, Return, Backspace and Esc all work directly. | **键盘直接输入** —— 数字小键盘、运算符、回车、退格、Esc 全部可用。 |
 | Orange accent colour, with the whole palette centralised in one `Palette` enum. | 橘色主色调，配色集中在一个 `Palette` 枚举里，想换色改一处即可。 |
+
+### Floating over full-screen apps · 浮在全屏应用之上
+
+![Floating over a full-screen window](preview/fullscreen_overlay.png)
+
+> Real screenshot: **算盘 stays on top while another app occupies a full-screen Space.** The window is in its idle-faded state here (40% opacity).
+>
+> 真机截图：**另一个 App 占满全屏空间时，算盘依然浮在最上层。** 图中窗口正处于空闲淡出状态（40% 不透明度）。
+
+Three settings are needed together — skip any one and the window vanishes exactly when you need it. · 三个设置必须同时满足，少一个窗口就会在你最需要它的时候消失：
+
+| # | Setting · 设置 | Why · 原因 |
+|---|---|---|
+| 1 | `NSPanel` + `.nonactivatingPanel` | A plain `NSWindow` additionally requires the whole app to become an *accessory* (`LSUIElement`), losing its Dock icon and menu bar. `NSPanel` doesn't. The style also means clicking the calculator **won't yank the other app out of full screen**. · 普通 `NSWindow` 还要求整个 App 降级为 accessory（无 Dock 图标、无菜单栏），`NSPanel` 没有这条限制；`.nonactivatingPanel` 还保证点击计算器**不会把对方顶出全屏**。 |
+| 2 | `level = .modalPanel` | Above regular *and* full-screen windows. `.floating` is not enough — inside a full-screen Space it ends up underneath. · 高于普通窗口与全屏窗口。`.floating` 不够——在全屏空间里会被压到底下。 |
+| 3 | `[.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]` | Join all Spaces, coexist with a full-screen window, hold position while Spaces slide. · 加入所有空间、与全屏窗口共存、切空间时固定不动。 |
+
+Two extra guards · 另有两处护栏：`hidesOnDeactivate = false`（`NSPanel` defaults to hiding when the app deactivates · `NSPanel` 默认失活即隐藏），and a re-assert on `activeSpaceDidChangeNotification`（the system won't re-add an existing window to a newly created full-screen Space · 系统不会把已有窗口自动加入新建的全屏空间，得自己补一刀）。
 
 ## Keyboard · 快捷键
 
@@ -57,9 +75,9 @@
 
 ### Option 1 — Download the prebuilt app (for users · 推荐给使用者)
 
-Grab `SuanPan-1.2-macos26-universal.zip` from **[Releases](../../releases)**, unzip it, then drag `算盘.app` into your Applications folder.
+Grab `SuanPan-1.3-macos26-universal.zip` from **[Releases](../../releases)**, unzip it, then drag `算盘.app` into your Applications folder.
 
-到 **[Releases](../../releases)** 下载 `SuanPan-1.2-macos26-universal.zip`，解压后把 `算盘.app` 拖进「应用程序」文件夹即可。
+到 **[Releases](../../releases)** 下载 `SuanPan-1.3-macos26-universal.zip`，解压后把 `算盘.app` 拖进「应用程序」文件夹即可。
 
 1. The first launch will be blocked by Gatekeeper (the app is **not notarised by Apple** — only ad-hoc signed). Clear it with either method:
    首次打开会被 Gatekeeper 拦下（应用**未做 Apple 公证**，只做了 ad-hoc 签名），任选一种方式放行：
@@ -108,6 +126,7 @@ enum Cfg {
     static let size = NSSize(width: 320, height: 470)  // window size · 窗口尺寸
     static let idleAlpha: CGFloat = 0.40               // opacity when idle · 空闲时的整体不透明度
     static let idleDelay: TimeInterval = 1.5           // seconds before fading · 多久没操作就淡出（秒）
+    static let pinnedLevel: NSWindow.Level = .modalPanel   // always-on-top level · 置顶时的窗口层级
 }
 
 enum Palette {
@@ -120,6 +139,10 @@ enum Palette {
 Re-run `./build.sh` after any change. Same for the icon: edit `tools/IconGen.swift`, delete `AppIcon.icns`, rebuild.
 
 改完重跑 `./build.sh` 即生效。图标同理：改 `tools/IconGen.swift`，删掉 `AppIcon.icns` 再构建。
+
+> ⚠️ One trap if you edit the window setup: `isFloatingPanel = true` silently resets `level` back to `.floating`. Set `level` **after** it, or your level change is quietly discarded.
+>
+> ⚠️ 改窗口配置时注意一个坑：`isFloatingPanel = true` 会把 `level` 悄悄重置为 `.floating`，所以 `level` 必须写在它**之后**，否则设置会被无声丢弃。
 
 ## Project Structure · 项目结构
 
