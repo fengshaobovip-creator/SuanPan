@@ -53,12 +53,12 @@
 
 ## Installation · 安装
 
-### Option 1 — Download the `.app` (for users · 推荐给使用者)
+### Option 1 — Use a prebuilt `.app` (for users · 推荐给使用者)
 
-1. Download `算盘.app` from Releases and drag it into your Applications folder.
-   从 Releases 下载 `算盘.app`，拖入「应用程序」文件夹。
+If you already have `算盘.app` (built yourself, or downloaded from Releases when available), drag it into your Applications folder.
+如果你手上已经有 `算盘.app`（自己构建的，或从 Releases 下载的），直接拖进「应用程序」文件夹即可。
 
-2. The first launch will be blocked by Gatekeeper (the app is **not notarised by Apple** — only ad-hoc signed). Clear it with either method:
+1. The first launch will be blocked by Gatekeeper (the app is **not notarised by Apple** — only ad-hoc signed). Clear it with either method:
    首次打开会被 Gatekeeper 拦下（应用**未做 Apple 公证**，只做了 ad-hoc 签名），任选一种方式放行：
 
    ```bash
@@ -70,7 +70,7 @@
    >
    > 方式 B：右键点 App →「打开」；若仍被拦，去「系统设置 → 隐私与安全性」，在底部找到被拦提示点「仍要打开」。
 
-3. To keep it in the Dock: launch it, then right-click the Dock icon → Options → **Keep in Dock**.
+2. To keep it in the Dock: launch it, then right-click the Dock icon → Options → **Keep in Dock**.
    想常驻 Dock：启动后右键 Dock 图标 → 选项 → **在程序坞中保留**。
 
 ### Option 2 — Build from source (for developers · 推荐给开发者)
@@ -156,4 +156,3 @@ Bugs and feature requests are welcome via Issues — this app exists because the
 The icon follows Apple's macOS app-icon geometry (1024 canvas / 824×824 content area / 185 corner radius). The icon and all UI are original work drawn in this repository; no Apple Design Resources assets are used. The pin glyph in the top bar uses an SF Symbol, within an app on Apple platforms as permitted by its licence.
 
 图标尺寸遵循 Apple 的 macOS 应用图标规范（1024 画布 / 内容区 824×824 / 圆角 185），图标与界面均为本仓库原创绘制，未使用 Apple Design Resources 素材。顶部图钉使用系统 SF Symbols（在 Apple 平台 App 内按许可使用）。
-

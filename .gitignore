@@ -1,0 +1,24 @@
+# 构建产物（由 build.sh 生成，不入库）
+算盘.app/
+*.app/
+build/
+*.iconset/
+
+# 图标（由 tools/IconGen.swift 生成，不入库）
+AppIcon.icns
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Swift / Xcode
+*.dSYM/
+.swiftpm/
+.build/
+Package.resolved
+
+# 编辑器
+.vscode/
+.idea/
