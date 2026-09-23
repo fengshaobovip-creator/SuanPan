@@ -80,9 +80,13 @@ Grab `SuanPan-1.2-macos26-universal.zip` from **[Releases](../../releases)**, un
 
 ```bash
 git clone https://github.com/fengshaobovip-creator/SuanPan.git && cd SuanPan
-./build.sh
+chmod +x build.sh && ./build.sh
 open 算盘.app
 ```
+
+> If you get **`permission denied: ./build.sh`**, just run `bash build.sh` instead — scripts committed through the web UI don't always keep their executable bit.
+>
+> 若提示 **`permission denied: ./build.sh`**，改用 `bash build.sh` 即可 —— 通过网页界面提交的脚本不一定会保留可执行位。
 
 `build.sh` does four things: generates the icon on demand (if `AppIcon.icns` is missing it is drawn by `tools/IconGen.swift`) → writes `Info.plist` → compiles **both architectures** with `swiftc` and merges them with `lipo` → ad-hoc signs. The result is `./算盘.app`, ready to drag into Applications. If either architecture fails to compile, the script falls back to the one that succeeded instead of aborting.
 
