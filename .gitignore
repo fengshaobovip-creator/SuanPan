@@ -2,6 +2,8 @@
 算盘.app/
 *.app/
 build/
+dist/
+*.zip
 *.iconset/
 
 # 图标（由 tools/IconGen.swift 生成，不入库）
