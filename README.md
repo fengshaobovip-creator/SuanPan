@@ -4,6 +4,8 @@
 
 **macOS 原生桌面计算器，真·液态玻璃材质。** 无边框、常驻桌面、空闲自动淡出 —— 做表格、算账时随时在手边。
 
+![macOS 26+](https://img.shields.io/badge/macOS-26.0%2B-black) ![Universal](https://img.shields.io/badge/binary-universal-orange) ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue)
+
 > **Not a web wrapper — a native app** compiled with Swift + AppKit. The glass material uses the system `NSGlassEffectView`, which genuinely refracts whatever is behind it. Window pinning and cross-Space persistence are handled by the system window layer.
 >
 > **不是网页套壳，是原生 App** —— Swift + AppKit 编译。玻璃材质调用系统 `NSGlassEffectView`，会真实折射背后内容；窗口置顶、跨桌面常驻都由系统窗口层实现。
@@ -48,15 +50,16 @@
 | Item · 项目 | Requirement · 要求 | Notes · 说明 |
 |---|---|---|
 | OS · 系统 | **macOS 26.0 or later** | The Liquid Glass API `NSGlassEffectView` is available from macOS 26. **The app will not launch on earlier versions.** · 低版本**无法运行** |
-| Chip · 芯片 | **Apple Silicon (arm64)** | Current build is arm64-only; Intel users must rebuild (see below). · 当前产物为 arm64，Intel 机型需自行重编 |
+| Chip · 芯片 | **Apple Silicon or Intel** | The released binary is **universal** (arm64 + x86_64) — one download runs on both. · 发布产物为**通用二进制**，两种芯片通用 |
 | Toolchain · 编译 | Xcode Command Line Tools | Only needed when building from source: `xcode-select --install`. · 仅自行编译时需要 |
 
 ## Installation · 安装
 
-### Option 1 — Use a prebuilt `.app` (for users · 推荐给使用者)
+### Option 1 — Download the prebuilt app (for users · 推荐给使用者)
 
-If you already have `算盘.app` (built yourself, or downloaded from Releases when available), drag it into your Applications folder.
-如果你手上已经有 `算盘.app`（自己构建的，或从 Releases 下载的），直接拖进「应用程序」文件夹即可。
+Grab `SuanPan-1.2-macos26-universal.zip` from **[Releases](../../releases)**, unzip it, then drag `算盘.app` into your Applications folder.
+
+到 **[Releases](../../releases)** 下载 `SuanPan-1.2-macos26-universal.zip`，解压后把 `算盘.app` 拖进「应用程序」文件夹即可。
 
 1. The first launch will be blocked by Gatekeeper (the app is **not notarised by Apple** — only ad-hoc signed). Clear it with either method:
    首次打开会被 Gatekeeper 拦下（应用**未做 Apple 公证**，只做了 ad-hoc 签名），任选一种方式放行：
@@ -76,14 +79,14 @@ If you already have `算盘.app` (built yourself, or downloaded from Releases wh
 ### Option 2 — Build from source (for developers · 推荐给开发者)
 
 ```bash
-git clone <this-repo-url> && cd SuanPan
+git clone https://github.com/fengshaobovip-creator/SuanPan.git && cd SuanPan
 ./build.sh
 open 算盘.app
 ```
 
-`build.sh` does four things: generates the icon on demand (if `AppIcon.icns` is missing it is drawn by `tools/IconGen.swift`) → writes `Info.plist` → compiles with `swiftc` → ad-hoc signs. The result is `./算盘.app`, ready to drag into Applications.
+`build.sh` does four things: generates the icon on demand (if `AppIcon.icns` is missing it is drawn by `tools/IconGen.swift`) → writes `Info.plist` → compiles **both architectures** with `swiftc` and merges them with `lipo` → ad-hoc signs. The result is `./算盘.app`, ready to drag into Applications. If either architecture fails to compile, the script falls back to the one that succeeded instead of aborting.
 
-`build.sh` 做了四件事：按需生成图标（`AppIcon.icns` 不存在时用 `tools/IconGen.swift` 画）→ 写 `Info.plist` → `swiftc` 编译 → ad-hoc 签名。产物为 `./算盘.app`，可直接拖进「应用程序」。
+`build.sh` 做了四件事：按需生成图标（`AppIcon.icns` 不存在时用 `tools/IconGen.swift` 画）→ 写 `Info.plist` → 用 `swiftc` **编译两种架构**并以 `lipo` 合并 → ad-hoc 签名。产物为 `./算盘.app`，可直接拖进「应用程序」。若某一架构编译失败，脚本会退回到成功的那一个，而不是整体中断。
 
 To install · 想装到应用程序文件夹：
 
@@ -132,16 +135,9 @@ SuanPan/
 
 ## Known Limitations · 已知限制
 
-- macOS 26+ and Apple Silicon only (see Requirements above). · 仅支持 macOS 26+ / Apple Silicon。
+- macOS 26+ only (see Requirements above). · 仅支持 macOS 26+。
 - Not notarised by Apple — one manual approval is needed after download. · 未做 Apple 公证，下载后需手动放行一次。
 - The system window shadow is disabled in order to eliminate the dark bleed along the rounded corners of a borderless window, so the window casts no drop shadow. · 为消除无边框窗口圆角处的深色渗边，**关闭了系统窗口阴影**，因此窗口没有投影。
-- For a multi-architecture (Intel + Apple Silicon) build, merge the slices yourself · 需要多架构产物时自行合并：
-
-  ```bash
-  swiftc -O -swift-version 5 -target arm64-apple-macosx26.0  -o /tmp/sp_arm64 main.swift
-  swiftc -O -swift-version 5 -target x86_64-apple-macosx26.0 -o /tmp/sp_x86   main.swift
-  lipo -create /tmp/sp_arm64 /tmp/sp_x86 -output /tmp/SuanPan
-  ```
 
 ## Feedback · 反馈
 

@@ -898,7 +898,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let target = NSScreen.screens.first ?? NSScreen.main
         var origin: NSPoint? = nil
 
-        if let saved = UserDefaults.standard.string(forKey: "LiquidCalcFrame") {
+        if let saved = UserDefaults.standard.string(forKey: "SuanPanFrame") {
             let r = NSRectFromString(saved)
             if r.width > 0,
                NSScreen.screens.contains(where: { $0.visibleFrame.intersects(r) }) {
@@ -946,7 +946,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         // 记住窗口位置，下次还在原地
-        UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "LiquidCalcFrame")
+        UserDefaults.standard.set(NSStringFromRect(window.frame), forKey: "SuanPanFrame")
     }
 
     @objc private func appActivated() {
